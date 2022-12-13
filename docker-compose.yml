@@ -1,0 +1,51 @@
+#version: "3.2"
+version: '2.1'
+
+services:
+  rabbit:
+    image: rabbitmq:3-management-alpine
+    container_name: "rabbitmq"
+    ports:
+      - 5672:5672
+      - 15672:15672
+
+  master:
+    build:
+      dockerfile: master.Dockerfile
+      context: .
+
+  worker:
+    build:
+      dockerfile: worker.Dockerfile
+      context: .
+
+  worker2:
+    build:
+      dockerfile: worker.Dockerfile
+      context: .
+
+  worker3:
+    build:
+      dockerfile: worker.Dockerfile
+      context: .
+
+  redis:
+    image: redis:6.2-alpine
+    ports:
+      - '6379:6379'
+    command: redis-server --loglevel warning
+
+
+  persister:
+    build:
+      dockerfile: persister.Dockerfile
+      context: .
+
+  postgre:
+    image: postgres:14.1-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=pass
+    ports:
+      - '54321:5432'
