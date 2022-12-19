@@ -1,3 +1,8 @@
+# Run
+
+```shell
+./run.sh
+```
 # Architecture
 
 ![Architecture](images/arch.png)

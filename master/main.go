@@ -106,10 +106,9 @@ func main() {
 			var newLinks []string
 
 			for _, link := range links {
-				val, err := rdb.Get(context.TODO(), link).Result()
+				_, err := rdb.Get(context.TODO(), link).Result()
 
 				if err == redis.Nil {
-					log.Println("III Adding ", link, " to the redis")
 					rdb.Set(context.TODO(), link, true, 0).Err()
 					newLinks = append(newLinks, link)
 				} else if err != nil {
