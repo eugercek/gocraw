@@ -1,12 +1,7 @@
-# Features
-1. Works distributed
-2. HTTP/HTTPS option
-3. Config file
-    - Black list IP
-    - Black list hostname
-    - Consider link dead after a time
-    - How many CPU to use
-# Things that a distrubuted web crawler needs to think about
+# Architecture
+
+![Architecture](images/arch.png)
+# TODO Things that a distrubuted web crawler needs to think about
 ## 1. Politeness
 
 One should think about the traffic their crawler will produce.

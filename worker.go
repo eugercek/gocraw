@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -154,7 +153,6 @@ func main() {
 					links = append(links, link)
 				}
 			})
-			fmt.Println(">>>", links)
 			log.Printf("Found %d link from %s", len(links), u)
 			err = ch.PublishWithContext(context.TODO(),
 				"",         // exchange

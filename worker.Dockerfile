@@ -4,7 +4,7 @@ WORKDIR /go/src/app
 COPY . .
 
 RUN go get -d -v ./...
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /go/bin/app -v worker.go
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /go/bin/app -v worker/main.go
 
 FROM alpine:latest
 
