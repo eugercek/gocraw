@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"github.com/eugercek/gocraw/internal/rabmq"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
 	"strings"
@@ -37,33 +38,15 @@ func main() {
 	log.Println("rabbitmq channel successful")
 	defer ch.Close()
 
-	q, err := ch.QueueDeclare(
-		"url-frontier", // name
-		false,          // durable
-		false,          // delete when unused
-		false,          // exclusive
-		false,          // no-wait
-		nil,            // arguments
-	)
-
+	q, err := rabmq.QueueDeclare(ch, "url-frontier")
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Println("rabbitmq queue url-frontier successful")
 
-	qBack, err := ch.QueueDeclare(
-		"back", // name
-		false,  // durable
-		false,  // delete when unused
-		false,  // exclusive
-		false,  // no-wait
-		nil,    // arguments
-	)
-
+	qBack, err := rabmq.QueueDeclare(ch, "url-back")
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Println("rabbitmq queue url-back successful")
 
 	err = ch.PublishWithContext(context.TODO(),
 		"",     // exchange
@@ -85,7 +68,7 @@ func main() {
 
 	msgs, err := ch.Consume(
 		qBack.Name, // queue
-		"",         // consumer
+		"master",   // consumer
 		true,       // auto-ack
 		false,      // exclusive
 		false,      // no-local
@@ -114,21 +97,21 @@ func main() {
 				} else if err != nil {
 					log.Fatal(err)
 				}
+			}
 
-				for _, link := range newLinks {
-					err = ch.PublishWithContext(context.TODO(),
-						"",     // exchange
-						q.Name, // routing key
-						false,  // mandatory
-						false,  // immediate
-						amqp.Publishing{
-							ContentType: "text/plain",
-							Body:        []byte(link),
-						},
-					)
-					if err != nil {
-						log.Print("[ERROR] ", err)
-					}
+			for _, link := range newLinks {
+				err = ch.PublishWithContext(context.TODO(),
+					"",     // exchange
+					q.Name, // routing key
+					false,  // mandatory
+					false,  // immediate
+					amqp.Publishing{
+						ContentType: "text/plain",
+						Body:        []byte(link),
+					},
+				)
+				if err != nil {
+					log.Print("[ERROR] ", err)
 				}
 			}
 		}

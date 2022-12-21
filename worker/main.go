@@ -3,6 +3,11 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"github.com/PuerkitoBio/goquery"
+	"github.com/eugercek/gocraw/internal/rabmq"
+	amqp "github.com/rabbitmq/amqp091-go"
+	"gopkg.in/yaml.v3"
 	"io"
 	"log"
 	"net/http"
@@ -11,10 +16,6 @@ import (
 	"runtime"
 	"strings"
 	"time"
-
-	"github.com/PuerkitoBio/goquery"
-	amqp "github.com/rabbitmq/amqp091-go"
-	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
@@ -35,6 +36,7 @@ type Config struct {
 }
 
 func main() {
+	name := generate(5)
 	time.Sleep(30 * time.Second)
 	// confFile := flag.String("conf", "conf.yaml", "config file to use")
 	// isConf := flag.Bool("-noconf", true, "Use default")
@@ -62,56 +64,29 @@ func main() {
 	log.Println("rabbitmq channel successful")
 	defer ch.Close()
 
-	q, err := ch.QueueDeclare(
-		"url-frontier", // name
-		false,          // durable
-		false,          // delete when unused
-		false,          // exclusive
-		false,          // no-wait
-		nil,            // arguments
-	)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Println("rabbitmq queue url-frontier successful")
-
-	qBack, err := ch.QueueDeclare(
-		"back", // name
-		false,  // durable
-		false,  // delete when unused
-		false,  // exclusive
-		false,  // no-wait
-		nil,    // arguments
-	)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Println("rabbitmq queue url-back successful")
-
-	qPer, err := ch.QueueDeclare(
-		"persist", // name
-		false,     // durable
-		false,     // delete when unused
-		false,     // exclusive
-		false,     // no-wait
-		nil,       // arguments
-	)
+	qUrl, err := rabmq.QueueDeclare(ch, "url-frontier")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	log.Println("rabbitmq queue persist successful")
+	qBack, err := rabmq.QueueDeclare(ch, "url-back")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	qPer, err := rabmq.QueueDeclare(ch, "persist")
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	msgs, err := ch.Consume(
-		q.Name, // queue
-		"",     // consumer
-		true,   // auto-ack
-		false,  // exclusive
-		false,  // no-local
-		false,  // no-wait
-		nil,    // args
+		qUrl.Name, // queue
+		name,      // consumer
+		true,      // auto-ack
+		false,     // exclusive
+		false,     // no-local
+		false,     // no-wait
+		nil,       // args
 	)
 
 	if err != nil {
@@ -222,4 +197,14 @@ func LoadConfig(fname string, isConf bool) (*Config, error) {
 	}
 
 	return &conf, err
+}
+
+func generate(size int) string {
+	alphabet := []byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	b := make([]byte, size)
+	rand.Read(b)
+	for i := 0; i < size; i++ {
+		b[i] = alphabet[b[i]%byte(len(alphabet))]
+	}
+	return string(b)
 }

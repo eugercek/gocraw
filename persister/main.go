@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"github.com/eugercek/gocraw/internal/rabmq"
 	_ "github.com/lib/pq"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
@@ -18,6 +19,7 @@ func main() {
 		log.Fatal(err)
 	}
 	_, err = db.Exec(`
+DROP table IF EXISTS links;
 CREATE TABLE IF NOT EXISTS links (
   id SERIAL PRIMARY KEY,
   dname varchar(255) NOT NULL,
@@ -47,20 +49,10 @@ CREATE TABLE IF NOT EXISTS links (
 	log.Println("rabbitmq channel successful")
 	defer ch.Close()
 
-	q, err := ch.QueueDeclare(
-		"persist", // name
-		false,     // durable
-		false,     // delete when unused
-		false,     // exclusive
-		false,     // no-wait
-		nil,       // arguments
-	)
+	q, err := rabmq.QueueDeclare(ch, "persist")
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	log.Println("rabbitmq queue persist successful")
-
 	msgs, err := ch.Consume(
 		q.Name, // queue
 		"",     // consumer

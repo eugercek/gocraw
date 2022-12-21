@@ -1,5 +1,4 @@
-#version: "3.2"
-version: '2.1'
+version: "3.9"
 
 services:
   rabbit:
@@ -18,16 +17,8 @@ services:
     build:
       dockerfile: worker.Dockerfile
       context: .
-
-  worker2:
-    build:
-      dockerfile: worker.Dockerfile
-      context: .
-
-  worker3:
-    build:
-      dockerfile: worker.Dockerfile
-      context: .
+    deploy:
+      replicas: 3
 
   redis:
     image: redis:6.2-alpine
