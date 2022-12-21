@@ -33,11 +33,14 @@ type Config struct {
 
 	// Can be http or https
 	Protocol string
+
+	//
+	TimeOut time.Duration
 }
 
 func main() {
+	time.Sleep(50 * time.Second)
 	name := generate(5)
-	time.Sleep(30 * time.Second)
 	// confFile := flag.String("conf", "conf.yaml", "config file to use")
 	// isConf := flag.Bool("-noconf", true, "Use default")
 
@@ -102,10 +105,11 @@ func main() {
 			req, _ := http.NewRequest("GET", u, nil)
 			req.Header.Set("User-Agent", config.UserAgent)
 			resp, _ := client.Do(req)
-			defer resp.Body.Close()
-			if resp.StatusCode != 200 {
+			if resp.StatusCode != http.StatusOK {
 				log.Printf("[ERROR] failed to fetch data: %d %s\n", resp.StatusCode, resp.Status)
+				continue
 			}
+			defer resp.Body.Close()
 			buf, _ := io.ReadAll(resp.Body)
 			rdr1 := io.NopCloser(bytes.NewBuffer(buf))
 			rdr2 := io.NopCloser(bytes.NewBuffer(buf))
@@ -122,23 +126,27 @@ func main() {
 				if !ok {
 					return
 				}
-				if strings.Contains(link, "http") {
+				if strings.Contains(link, config.Protocol) { // TODO
 					ur, _ := url.Parse(link)
 					link = ur.Hostname()
 					links = append(links, link)
 				}
 			})
-			log.Printf("Found %d link from %s", len(links), u)
-			err = ch.PublishWithContext(context.TODO(),
-				"",         // exchange
-				qBack.Name, // routing key
-				false,      // mandatory
-				false,      // immediate
-				amqp.Publishing{
-					ContentType: "text/plain",
-					Body:        []byte(strings.Join(links, ",")),
-				},
-			)
+			if len(links) > 0 {
+				log.Printf("Found %d link from %s", len(links), u)
+				err = ch.PublishWithContext(context.TODO(),
+					"",         // exchange
+					qBack.Name, // routing key
+					false,      // mandatory
+					false,      // immediate
+					amqp.Publishing{
+						ContentType: "text/plain",
+						Body:        []byte(strings.Join(links, ",")),
+					},
+				)
+			} else {
+				log.Printf("Found no links from %s", links)
+			}
 
 			if err != nil {
 				log.Println(err)

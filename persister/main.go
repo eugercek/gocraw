@@ -13,8 +13,9 @@ import (
 const connStr = "postgresql://postgres:pass@postgre/postgres?sslmode=disable"
 
 func main() {
-	time.Sleep(30 * time.Second)
+	time.Sleep(50 * time.Second)
 	db, err := sql.Open("postgres", connStr)
+
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -25,8 +26,8 @@ CREATE TABLE IF NOT EXISTS links (
   dname varchar(255) NOT NULL,
   html text,
   time_stamp timestamptz
-)
-`)
+);
+`) // TODO
 	if err != nil {
 		log.Fatal(err)
 	}

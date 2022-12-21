@@ -5,16 +5,23 @@ import (
 	"github.com/eugercek/gocraw/internal/rabmq"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"log"
+	"os"
 	"strings"
 	"time"
 
 	redis "github.com/go-redis/redis/v8"
 )
 
-const InitialDomain = "wikipedia.com"
+const SeedUrl = "www.wikipedia.org"
 
 func main() {
-	time.Sleep(30 * time.Second)
+	time.Sleep(50 * time.Second)
+	seed := os.Getenv("SEED")
+	if seed == "" {
+		seed = SeedUrl
+	}
+
+	log.Printf("Starting with seed url %s\n", seed)
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     "redis:6379",
 		Password: "", // no password set
@@ -48,6 +55,7 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// Send seed url to worker nodes
 	err = ch.PublishWithContext(context.TODO(),
 		"",     // exchange
 		q.Name, // routing key
@@ -55,15 +63,15 @@ func main() {
 		false,  // immediate
 		amqp.Publishing{
 			ContentType: "text/plain",
-			Body:        []byte(InitialDomain),
+			Body:        []byte(SeedUrl),
 		},
 	)
 
 	if err != nil {
-		log.Fatal(err, "82")
+		log.Fatal(err)
 	}
 
-	rdb.Set(context.TODO(), InitialDomain, true, 0)
+	rdb.Set(context.TODO(), SeedUrl, true, 0)
 	log.Println("Initial message sent")
 
 	msgs, err := ch.Consume(
