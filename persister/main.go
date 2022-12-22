@@ -86,9 +86,8 @@ VALUES ($1, $2, $3)
 
 			_, err := stmnt.Exec(domain, html, time.Now())
 			if err != nil {
-				log.Fatal(err)
+				log.Printf("[ERROR] %s", err.Error())
 			}
-
 		}
 	}()
 
