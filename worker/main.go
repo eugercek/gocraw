@@ -100,73 +100,88 @@ func main() {
 	client := &http.Client{}
 	go func() {
 		for d := range msgs {
-			u := config.Protocol + "://" + string(d.Body)
-			log.Printf("Received: %s\n", d.Body)
-			req, _ := http.NewRequest("GET", u, nil)
-			req.Header.Set("User-Agent", config.UserAgent)
-			resp, _ := client.Do(req)
-			if resp.StatusCode != http.StatusOK {
-				log.Printf("[ERROR] failed to fetch data: %d %s\n", resp.StatusCode, resp.Status)
-				continue
-			}
-			defer resp.Body.Close()
-			buf, _ := io.ReadAll(resp.Body)
-			rdr1 := io.NopCloser(bytes.NewBuffer(buf))
-			rdr2 := io.NopCloser(bytes.NewBuffer(buf))
-
-			resp.Body = rdr1
-			doc, err := goquery.NewDocumentFromReader(resp.Body)
-
-			if err != nil {
-				log.Println("[ERROR] ", err)
-			}
-			var links []string
-			doc.Find("body a").Each(func(_ int, s *goquery.Selection) {
-				link, ok := s.Attr("href")
-				if !ok {
+			log.Printf("Upper received, %s", d.Body)
+			go func(d amqp.Delivery) {
+				u := config.Protocol + "://" + string(d.Body)
+				log.Printf("Received: %s\n", d.Body)
+				req, _ := http.NewRequest("GET", u, nil)
+				req.Header.Set("User-Agent", config.UserAgent)
+				resp, err := client.Do(req)
+				if err != nil {
+					log.Printf("[ERROR] http error: %s", err.Error())
 					return
 				}
-				if strings.Contains(link, config.Protocol) { // TODO
-					ur, _ := url.Parse(link)
-					link = ur.Hostname()
-					links = append(links, link)
+				if resp.StatusCode != http.StatusOK {
+					log.Printf("[ERROR] failed to fetch data: %d %s\n", resp.StatusCode, resp.Status)
+					return
 				}
-			})
-			if len(links) > 0 {
-				log.Printf("Found %d link from %s", len(links), u)
+				defer resp.Body.Close()
+				buf, _ := io.ReadAll(resp.Body)
+				rdr1 := io.NopCloser(bytes.NewBuffer(buf))
+				rdr2 := io.NopCloser(bytes.NewBuffer(buf))
+
+				resp.Body = rdr1
+				doc, err := goquery.NewDocumentFromReader(resp.Body)
+
+				if err != nil {
+					log.Println("[ERROR] ", err)
+					return
+				}
+
+				var links []string
+				doc.Find("body a").Each(func(_ int, s *goquery.Selection) {
+					link, ok := s.Attr("href")
+					if !ok {
+						return
+					}
+					if strings.Contains(link, config.Protocol) {
+						ur, err := url.Parse(link)
+						if err != nil {
+							log.Printf("[ERROR] error in URL parse %s", err.Error())
+							return
+						}
+						link = ur.Hostname()
+						links = append(links, link)
+					}
+				})
+
+				if len(links) > 0 {
+					log.Printf("Found %d link from %s", len(links), u)
+					err = ch.PublishWithContext(context.TODO(),
+						"",         // exchange
+						qBack.Name, // routing key
+						false,      // mandatory
+						false,      // immediate
+						amqp.Publishing{
+							ContentType: "text/plain",
+							Body:        []byte(strings.Join(links, ",")),
+						},
+					)
+
+					if err != nil {
+						log.Println(err)
+					}
+
+				} else {
+					log.Printf("Found no links from %s", links)
+				}
+
+				html, _ := io.ReadAll(rdr2)
 				err = ch.PublishWithContext(context.TODO(),
-					"",         // exchange
-					qBack.Name, // routing key
-					false,      // mandatory
-					false,      // immediate
+					"",        // exchange
+					qPer.Name, // routing key
+					false,     // mandatory
+					false,     // immediate
 					amqp.Publishing{
 						ContentType: "text/plain",
-						Body:        []byte(strings.Join(links, ",")),
+						Body:        []byte(string(d.Body) + "," + string(html)),
 					},
 				)
-			} else {
-				log.Printf("Found no links from %s", links)
-			}
 
-			if err != nil {
-				log.Println(err)
-			}
-
-			html, _ := io.ReadAll(rdr2)
-			err = ch.PublishWithContext(context.TODO(),
-				"",        // exchange
-				qPer.Name, // routing key
-				false,     // mandatory
-				false,     // immediate
-				amqp.Publishing{
-					ContentType: "text/plain",
-					Body:        []byte(string(d.Body) + "," + string(html)),
-				},
-			)
-
-			if err != nil {
-				log.Println(err)
-			}
+				if err != nil {
+					log.Println(err)
+				}
+			}(d)
 		}
 	}()
 
